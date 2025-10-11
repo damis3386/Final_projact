@@ -1,0 +1,5 @@
+هذا مثال لتجربة أداة التحليل الجنائي الرقمي.
+نريد التأكد أن الكود يقرأ الملفات ويحسب عدد الكلمات بشكل صحيح.
+User login failed from IP 192.168.1.5
+Unauthorized access detected
+Possible malware attack found in logs
