@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # analysis.py
 import os
 import re
@@ -22,40 +21,66 @@ def analyze_log(content):
         "warnings": len(warning_lines)
     }
 
-# 🟢 البحث عن الأنماط المشبوهة
+# 🟢 البحث عن الأنماط والكلمات المشبوهة (مع تصنيفها)
 def search_suspicious(content):
-    patterns = [
-        r"hacked", r"attack", r"malware", r"unauthorized",
-        r"login failed", r"breach", r"error code \d+"
-    ]
+    # الأنماط مصنفة حسب الخطورة
+    patterns = {
+        "Critical": [
+            r"attack", r"malware", r"ransomware", r"trojan",
+            r"sql injection", r"ddos", r"data breach"
+        ],
+        "Unauthorized": [
+            r"unauthorized", r"access denied", r"bruteforce",
+            r"invalid user", r"failed login", r"login failed"
+        ],
+        "Warning": [
+            r"warning", r"timeout", r"connection lost", r"error code \d+"
+        ],
+        "Info": [
+            r"scan", r"xss", r"port scan", r"ping", r"success"
+        ]
+    }
+
     found = []
-    for p in patterns:
-        matches = re.findall(p, content, flags=re.IGNORECASE)
-        if matches:
-            found.append({p: len(matches)})
+    for category, regex_list in patterns.items():
+        for pattern in regex_list:
+            matches = re.findall(pattern, content, flags=re.IGNORECASE)
+            if matches:
+                found.append({
+                    "category": category,
+                    "pattern": pattern,
+                    "count": len(matches)
+                })
     return found
 
-# 🟢 تنسيق وطباعة التقرير
+# 🟢 تنسيق التقرير بشكل احترافي
 def format_report(result, suspicious):
     report = []
-    report.append("="*50)
+    report.append("="*55)
     report.append("📊 تقرير التحليل الجنائي الرقمي")
-    report.append("="*50)
+    report.append("="*55)
     report.append(f"🔸 عدد الأسطر: {result['total_lines']}")
     report.append(f"🔸 عدد الأخطاء: {result['errors']}")
     report.append(f"🔸 عدد التحذيرات: {result['warnings']}")
-    report.append("-"*50)
-    report.append("🔍 الكلمات والأنماط المشبوهة:")
+    report.append("-"*55)
+    report.append("🔍 النتائج المصنفة:")
+    
     if suspicious:
         for item in suspicious:
-            for k, v in item.items():
-                report.append(f"  • {k} ← {v} مرة")
+            cat_icon = {
+                "Critical": "🔴",
+                "Unauthorized": "🟠",
+                "Warning": "🟡",
+                "Info": "⚪"
+            }.get(item["category"], "⚪")
+            report.append(f"  {cat_icon} [{item['category']}]  {item['pattern']} ← {item['count']} مرة")
     else:
         report.append("✅ لا توجد أنماط مشبوهة")
-    report.append("="*50)
+    
+    report.append("="*55)
     return "\n".join(report)
 
-# 🟢 حفظ التقرير داخل مجلد النتائج
+# 🟢 حفظ التقرير
 def save_report(report_text):
     if not os.path.exists("results"):
         os.makedirs("results")
@@ -64,7 +89,7 @@ def save_report(report_text):
         f.write(report_text)
     print(f"\n💾 تم حفظ التقرير في: {filename}")
 
-# 🧩 التشغيل
+# 🧩 التشغيل التجريبي
 if __name__ == "__main__":
     path = "data/sample_log.txt"
     if not os.path.exists(path):
@@ -76,51 +101,3 @@ if __name__ == "__main__":
         report_text = format_report(result, suspicious)
         print(report_text)
         save_report(report_text)
-=======
-# analysis.py
-# This module contains functions to analyze log files for suspicious entries.
-
-import re
-
-# Define keywords to search for (can be expanded later)
-KEYWORDS = ["error", "failed", "unauthorized", "warning", "denied"]
-
-def analyze_file(file_path):
-    """
-    Analyze a given file for suspicious entries.
-    
-    Args:
-        file_path (str): The path to the log file.
-        
-    Returns:
-        list: A list of lines containing suspicious keywords.
-    """
-    suspicious_entries = []
-    
-    try:
-        with open(file_path, "r", encoding="utf-8") as file:
-            lines = file.readlines()
-            
-        for line in lines:
-            if any(keyword.lower() in line.lower() for keyword in KEYWORDS):
-                suspicious_entries.append(line.strip())
-                
-    except FileNotFoundError:
-        print(f"Error: File not found -> {file_path}")
-    except Exception as e:
-        print(f"Error reading file: {e}")
-    
-    return suspicious_entries
-
-
-# ===== Example usage (for testing only) =====
-# if __name__ == "__main__":
-#     test_file = "sample_log.txt"
-#     results = analyze_file(test_file)
-#     if results:
-#         print("Suspicious entries found:")
-#         for r in results:
-#             print(r)
-#     else:
-#         print("No suspicious entries found.")
->>>>>>> 46d2dbb89644358aa1c23aa742a34669ce4b6ad2
