@@ -1,0 +1,57 @@
+{
+  "high_risk_patterns": [
+    {
+      "name": "SQL Injection",
+      "pattern": "sql\\s+injection",
+      "description": "محاولة حقن أوامر SQL خبيثة",
+      "score": 10,
+      "category": "اختراق قواعد البيانات"
+    },
+    {
+      "name": "Ransomware",
+      "pattern": "ransomware",
+      "description": "اكتشاف برامج الفدية",
+      "score": 10,
+      "category": "برامج ضارة"
+    }
+  ],
+  "medium_risk_patterns": [
+    {
+      "name": "Failed Login",
+      "pattern": "failed\\s+login",
+      "description": "محاولات دخول فاشلة",
+      "score": 5,
+      "category": "محاولات وصول"
+    },
+    {
+      "name": "Malware",
+      "pattern": "malware",
+      "description": "برامج ضارة",
+      "score": 5,
+      "category": "برامج ضارة"
+    },
+    {
+      "name": "Unauthorized Access",
+      "pattern": "unauthorized\\s+access",
+      "description": "وصول غير مصرح به",
+      "score": 5,
+      "category": "أمن الشبكات"
+    }
+  ],
+  "low_risk_patterns": [
+    {
+      "name": "Warning",
+      "pattern": "warning",
+      "description": "تحذيرات نظام",
+      "score": 1,
+      "category": "مراقبة النظام"
+    },
+    {
+      "name": "Timeout",
+      "pattern": "timeout",
+      "description": "انتهاء مهلة الاتصال",
+      "score": 1,
+      "category": "أداء النظام"
+    }
+  ]
+}
