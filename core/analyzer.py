@@ -1,15 +1,9 @@
 # core/analyzer.py
 # -*- coding: utf-8 -*-
-"""
-Forensic analyzer: basic + pattern search logic.
-يتعامل مع مخرجات FileHandlers.read(...) ويعطي نتائج قابلة للطباعة أو الاستخدام لاحقاً.
-"""
-
 import re
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 
-# قواعد افتراضية بسيطة (يمكن توسيعها لاحقاً أو تحميلها من JSON)
 DEFAULT_RULES = {
     "high": [
         {"name": "Ransomware", "pattern": r"\bransomware\b", "score": 10, "desc": "برمجية فدية"},
@@ -26,13 +20,11 @@ DEFAULT_RULES = {
     ]
 }
 
-
 class ForensicAnalyzer:
     def __init__(self, rules: Optional[Dict[str, List[Dict[str, Any]]]] = None):
         self.rules = rules if rules is not None else DEFAULT_RULES
 
     def analyze_basic(self, text: str) -> Dict[str, Any]:
-        """تحليل أساسي — أحصاء أسطر / أخطاء / تحذيرات / معلومات"""
         lines = text.splitlines()
         errors = sum(1 for l in lines if re.search(r'\berror\b', l, re.IGNORECASE))
         warnings = sum(1 for l in lines if re.search(r'\bwarning\b', l, re.IGNORECASE))
@@ -46,7 +38,6 @@ class ForensicAnalyzer:
         }
 
     def search_patterns(self, text: str) -> List[Dict[str, Any]]:
-        """بحث عن الأنماط بحسب القواعد — يرتّب النتائج حسب النقاط (score*count) تنازلياً."""
         found = []
         for level in ("high", "medium", "low"):
             for rule in self.rules.get(level, []):
@@ -64,12 +55,10 @@ class ForensicAnalyzer:
                         "desc": rule.get("desc", "")
                     }
                     found.append(entry)
-        # ترتيب حسب الأهمية (score * count)
         found.sort(key=lambda e: e["score"] * e["count"], reverse=True)
         return found
 
     def summarize(self, basic: Dict[str, Any], patterns: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """ترجيع ملخص منظم جاهز للطباعة أو للتصدير"""
         total_score = sum(p["score"] * p["count"] for p in patterns)
         if total_score >= 20:
             overall = "HIGH"
@@ -88,9 +77,39 @@ class ForensicAnalyzer:
             "recommended_action": action
         }
 
-    def analyze(self, text: str) -> Dict[str, Any]:
-        """دمج التحليل الأساسي، البحث عن الأنماط، وإنشاء الملخص"""
-        basic = self.analyze_basic(text)
-        patterns = self.search_patterns(text)
-        summary = self.summarize(basic, patterns)
-        return summary
+    # --- دالة التحليل الذكي والمتقدم ---
+    def advanced_analysis(self, text: str) -> List[Dict[str, Any]]:
+        """تحليل متقدم: كشف أنماط الشبكة والمحاولات المتكررة"""
+        # مثال بسيط: اكتشاف IP مكرر ومحاولات مشبوهة
+        ip_pattern = r'\b(?:\d{1,3}\.){3}\d{1,3}\b'
+        ips = re.findall(ip_pattern, text)
+        suspicious_ips = {}
+        for ip in ips:
+            suspicious_ips[ip] = suspicious_ips.get(ip, 0) + 1
+
+        # مثال آخر: اكتشاف محاولات SQL Injection
+        sql_pattern = r"(select\s+.*from|union\s+select|drop\s+table)"
+        sql_matches = re.findall(sql_pattern, text, re.IGNORECASE)
+
+        result = []
+
+        # إضافة الأحداث المشبوهة من IP
+        for ip, count in suspicious_ips.items():
+            if count > 1:
+                result.append({
+                    "type": "Suspicious IP",
+                    "detail": ip,
+                    "count": count,
+                    "risk": "medium"
+                })
+
+        # إضافة أحداث SQL Injection
+        if sql_matches:
+            result.append({
+                "type": "SQL Injection Attempt",
+                "detail": f"{len(sql_matches)} potential attacks",
+                "count": len(sql_matches),
+                "risk": "high"
+            })
+
+        return result

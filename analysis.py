@@ -3,7 +3,7 @@
 """
 أداة التحليل الجنائي الرقمي - Digital Forensics Tool
 إصدار: 2.0
-المطور: هيلة
+المطور: هيلة لين
 """
 
 import os
@@ -16,11 +16,13 @@ from typing import Dict, List, Any
 # ==========================
 # 🔧 إعداد التسجيل (Logging)
 # ==========================
+os.makedirs("logs", exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('forensics.log', encoding='utf-8'),
+        logging.FileHandler('logs/forensics.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -72,17 +74,18 @@ class RuleManager:
             ],
             "medium_risk_patterns": [
                 {"name": "Failed Login", "pattern": r"failed\s+login", "description": "محاولات دخول فاشلة متكررة", "score": 5, "category": "أمان النظام"},
-                {"name": "Malware", "pattern": r"malware", "description": "برامج ضارة", "score": 5, "category": "برامج ضارة"}
+                {"name": "Malware", "pattern": r"malware", "description": "برامج ضارة", "score": 5, "category": "برامج ضارة"},
+                {"name": "Unauthorized Access", "pattern": r"unauthorized\s+access", "description": "وصول غير مصرح به", "score": 5, "category": "أمان النظام"}
             ],
             "low_risk_patterns": [
-                {"name": "Warning", "pattern": r"warning", "description": "تحذيرات نظام", "score": 1, "category": "مراقبة النظام"}
+                {"name": "Warning", "pattern": r"warning", "description": "تحذيرات نظام", "score": 1, "category": "مراقبة النظام"},
+                {"name": "Timeout", "pattern": r"timeout", "description": "انتهاء مهلة اتصال", "score": 1, "category": "أمان الشبكة"}
             ]
         }
     
     def get_all_rules(self) -> Dict[str, List[Dict]]:
         """الحصول على جميع القواعد"""
         return self.rules
-
 # ==========================
 # 🟢 إدارة الملفات
 # ==========================
@@ -143,8 +146,8 @@ class ForensicAnalyzer:
         found_items = []
         risk_levels_mapping = {
             "high_risk_patterns": {"icon": "🟥", "level": "عالي الخطورة"},
-            "medium_risk_patterns": {"icon": "🟨", "level": "متوسط الخطورة"},
-            "low_risk_patterns": {"icon": "🟩", "level": "منخفض الخطورة"}
+            "medium_risk_patterns": {"icon": "🟠", "level": "متوسط الخطورة"},
+            "low_risk_patterns": {"icon": "🟢", "level": "منخفض الخطورة"}
         }
         for rule_category, risk_info in risk_levels_mapping.items():
             for rule in rules.get(rule_category, []):
@@ -182,10 +185,10 @@ class ForensicAnalyzer:
             overall_risk = "🟥 عالي"
             action_required = "نعم - تدخل فوري مطلوب"
         elif total_risk_score >= Config.RISK_THRESHOLDS['MEDIUM']:
-            overall_risk = "🟨 متوسط"
+            overall_risk = "🟠 متوسط"
             action_required = "مراقبة مستمرة"
         else:
-            overall_risk = "🟩 منخفض"
+            overall_risk = "🟢 منخفض"
             action_required = "لا - ضمن المعدل الطبيعي"
         
         return {
@@ -212,7 +215,6 @@ class ForensicAnalyzer:
                 "معدل_الأحداث_في_الساعة": len(lines) / 24 if times else 0
             }
         }
-
 # ==========================
 # 🟢 مولد التقارير
 # ==========================
@@ -221,7 +223,7 @@ class ReportGenerator:
     
     @staticmethod
     def generate_text_report(basic_analysis: Dict, suspicious_items: List[Dict], 
-                           stats: Dict, analysis_time: float) -> str:
+                             stats: Dict, analysis_time: float) -> str:
         """توليد تقرير نصي مفصل"""
         report = []
         report.append("╔" + "═" * 68 + "╗")
@@ -250,78 +252,19 @@ class ReportGenerator:
                         report.append(f"   • {threat['name']} ← {threat['count']} مرة")
                         report.append(f"     📝 {threat['description']}")
                         report.append(f"     🏷  التصنيف: {threat['category']}")
-                        report.append(f"     📊 نقاط الخطورة: {threat['score']} لكل حدث")
-                        if threat['examples']:
-                            report.append(f"     🔍 أمثلة: {', '.join(threat['examples'][:2])}")
-        else:
-            report.append("✅ لا توجد تهديدات مشبوهة مكتشفة")
+                        report.append(f"     📊 نقاط الخطورة: {threat['score']}")
+                        report.append(f"     أمثلة: {', '.join(threat['examples'])}")
         
         report.append("─" * 70)
-        report.append("📈 الإحصائيات المتقدمة:")
-        for section, data in stats.items():
-            report.append(f"\n   {section.replace('_', ' ')}:")
-            for key, value in data.items():
-                report.append(f"      • {key.replace('_', ' ')}: {value}")
-        
+        report.append("📈 التحليل الإحصائي المتقدم:")
+        report.append(f"   • أول حدث: {stats['التحليل_الزمني']['أول_حدث']}")
+        report.append(f"   • آخر حدث: {stats['التحليل_الزمني']['آخر_حدث']}")
+        report.append(f"   • إجمالي نقاط الخطورة: {stats['تقييم_الخطورة']['نقاط_الخطورة_الإجمالية']}")
+        report.append(f"   • مستوى الخطورة الشامل: {stats['تقييم_الخطورة']['مستوى_الخطورة_الشامل']}")
+        report.append(f"   • يتطلب تدخل: {stats['تقييم_الخطورة']['يتطلب_تدخل']}")
+        report.append(f"   • إجمالي الأحداث: {stats['الإحصائيات_العامة']['إجمالي_الأحداث']}")
+        report.append(f"   • التواريخ المختلفة: {stats['الإحصائيات_العامة']['التواريخ_المختلفة']}")
+        report.append(f"   • معدل الأحداث في الساعة: {stats['الإحصائيات_العامة']['معدل_الأحداث_في_الساعة']:.2f}")
         report.append("─" * 70)
-        report.append("💡 التوصيات:")
-        risk_action = stats["تقييم_الخطورة"]["يتطلب_تدخل"]
-        if "فوري" in risk_action:
-            report.append("   🚨 تدخل فوري مطلوب - تم اكتشاف تهديدات عالية الخطورة")
-            report.append("   📞 اتصل بفريق الأمن السيبراني فوراً")
-        elif "مراقبة" in risk_action:
-            report.append("   👀 مراقبة مستمرة مطلوبة - تهديدات متوسطة الخطورة")
-            report.append("   📊 تتبع النشاط المشبوه")
-        else:
-            report.append("   ✅ الوضع طبيعي - لا توجد تهديدات خطيرة")
-        
-        report.append("╔" + "═" * 68 + "╗")
-        report.append("║                    🏁 نهاية التقرير                     ║")  
-        report.append("╚" + "═" * 68 + "╝")
+        report.append("✅ تم إنشاء التقرير بنجاح.")
         return "\n".join(report)
-    
-    @staticmethod
-    def save_report(report_text: str, output_dir: str = "results") -> str:
-        """حفظ التقرير في ملف"""
-        try:
-            if not os.path.exists(output_dir):
-                os.makedirs(output_dir)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{output_dir}/forensic_report_{timestamp}.txt"
-            with open(filename, 'w', encoding='utf-8') as f:
-                f.write(report_text)
-            logger.info(f"💾 تم حفظ التقرير في: {filename}")
-            return filename
-        except Exception as e:
-            logger.error(f"❌ فشل حفظ التقرير: {e}")
-            return None
-
-# ==========================
-# 🧩 التشغيل الرئيسي
-# ==========================
-def main():
-    print("🚀 بدء أداة التحليل الجنائي الرقمي...")
-    analyzer = ForensicAnalyzer()
-    report_gen = ReportGenerator()
-    file_path = "data/sample_log.txt"
-    
-    try:
-        start_time = datetime.now()
-        content = analyzer.file_manager.read_file(file_path)
-        basic_analysis = analyzer.analyze_log_basic(content)
-        suspicious_items = analyzer.search_suspicious_patterns(content)
-        advanced_stats = analyzer.advanced_statistical_analysis(content)
-        analysis_time = (datetime.now() - start_time).total_seconds()
-        
-        report_text = report_gen.generate_text_report(basic_analysis, suspicious_items, advanced_stats, analysis_time)
-        print("\n" + report_text)
-        saved_file = report_gen.save_report(report_text)
-        if saved_file:
-            print(f"\n🎉 اكتمل التحليل بنجاح! التقرير محفوظ في: {saved_file}")
-        
-    except Exception as e:
-        logger.error(f"❌ فشل التحليل: {e}")
-        print(f"❌ حدث خطأ: {e}")
-
-if __name__ == "__main__":
-    main()

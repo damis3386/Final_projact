@@ -2,106 +2,130 @@
 # -*- coding: utf-8 -*-
 """
 File handlers: read different file types and return unified text/content for analysis.
-Supported: .txt, .log, .csv, .json, .zip
+Supported: .txt, .log, .csv, .json, .zip, .tar, .evt, .evtx, .pcap
 """
 
 import os
 import io
 import json
 import zipfile
+import tarfile
 import csv
-from typing import Tuple, List, Dict, Optional
+
+try:
+    import dpkt  # لتحليل ملفات pcap
+except ImportError:
+    dpkt = None
+
+try:
+    import Evtx.Evtx as evtx  # لتحليل ملفات evtx
+except ImportError:
+    evtx = None
 
 
 class FileHandlers:
-    SUPPORTED = {'.txt', '.log', '.csv', '.json', '.zip'}
+    def __init__(self):
+        pass
 
-    @staticmethod
-    def _read_text_file(path: str, encoding: str = 'utf-8') -> str:
-        with open(path, 'r', encoding=encoding, errors='replace') as f:
-            return f.read()
+    def read(self, file_path):
+        """Reads the file and returns its text content with metadata"""
+        if not os.path.exists(file_path):
+            return {"error": f"File not found: {file_path}", "text": "", "meta": {}}
 
-    @staticmethod
-    def _read_csv(path: str, encoding: str = 'utf-8') -> str:
-        rows = []
-        with open(path, 'r', encoding=encoding, errors='replace', newline='') as f:
-            reader = csv.DictReader(f)
-            for r in reader:
-                rows.append(json.dumps(r, ensure_ascii=False))
-        return "\n".join(rows)
-
-    @staticmethod
-    def _read_json(path: str, encoding: str = 'utf-8') -> str:
-        with open(path, 'r', encoding=encoding, errors='replace') as f:
-            data = json.load(f)
-        if isinstance(data, list):
-            return "\n".join(json.dumps(item, ensure_ascii=False) for item in data)
-        else:
-            return json.dumps(data, ensure_ascii=False)
-
-    @staticmethod
-    def _read_zip(path: str, encoding: str = 'utf-8') -> Tuple[str, List[str]]:
-        contents = []
-        names = []
-        with zipfile.ZipFile(path, 'r') as z:
-            for info in z.infolist():
-                names.append(info.filename)
-                _, ext = os.path.splitext(info.filename.lower())
-                if ext in ('.txt', '.log'):
-                    try:
-                        with z.open(info) as f:
-                            data = f.read().decode(encoding, errors='replace')
-                        contents.append(f"--- FILE: {info.filename} ---\n{data}")
-                    except Exception:
-                        contents.append(f"--- FILE: {info.filename} (unreadable) ---")
-                elif ext == '.csv':
-                    try:
-                        with z.open(info) as f:
-                            text = f.read().decode(encoding, errors='replace')
-                        reader = csv.DictReader(io.StringIO(text))
-                        rows = [json.dumps(r, ensure_ascii=False) for r in reader]
-                        contents.append("\n".join(rows))
-                    except Exception:
-                        contents.append(f"--- FILE: {info.filename} (csv parse error) ---")
-                elif ext == '.json':
-                    try:
-                        with z.open(info) as f:
-                            text = f.read().decode(encoding, errors='replace')
-                            data = json.loads(text)
-                        if isinstance(data, list):
-                            contents.append("\n".join(json.dumps(it, ensure_ascii=False) for it in data))
-                        else:
-                            contents.append(json.dumps(data, ensure_ascii=False))
-                    except Exception:
-                        contents.append(f"--- FILE: {info.filename} (json parse error) ---")
-                else:
-                    contents.append(f"--- FILE: {info.filename} (skipped - unsupported) ---")
-        return "\n\n".join(contents), names
-
-    @classmethod
-    def read(cls, file_path: str) -> Dict[str, Optional[object]]:
+        ext = os.path.splitext(file_path)[1].lower()
         try:
-            if not os.path.exists(file_path):
-                return {"text": None, "meta": None, "error": f"File not found: {file_path}"}
+            if ext in [".txt", ".log"]:
+                text = self._read_text(file_path)
+            elif ext == ".csv":
+                text = self._read_csv(file_path)
+            elif ext == ".json":
+                text = self._read_json(file_path)
+            elif ext == ".zip":
+                text = self._read_zip(file_path)
+            elif ext == ".tar":
+                text = self._read_tar(file_path)
+            elif ext in [".evt", ".evtx"]:
+                text = self._read_evtx(file_path)
+            elif ext == ".pcap":
+                text = self._read_pcap(file_path)
+            else:
+                return {"error": f"Unsupported file type: {ext}", "text": "", "meta": {}}
 
             size = os.path.getsize(file_path)
-            name = os.path.basename(file_path)
-            _, ext = os.path.splitext(name.lower())
-            meta = {"path": file_path, "size": size, "ext": ext, "files_in_zip": None}
-
-            if ext in ('.txt', '.log'):
-                text = cls._read_text_file(file_path)
-            elif ext == '.csv':
-                text = cls._read_csv(file_path)
-            elif ext == '.json':
-                text = cls._read_json(file_path)
-            elif ext == '.zip':
-                text, names = cls._read_zip(file_path)
-                meta["files_in_zip"] = names
-            else:
-                return {"text": None, "meta": meta, "error": f"Unsupported extension: {ext}"}
-
-            return {"text": text, "meta": meta, "error": None}
+            return {"error": None, "text": text, "meta": {"ext": ext, "size": size}}
 
         except Exception as e:
-            return {"text": None, "meta": None, "error": str(e)}
+            return {"error": str(e), "text": "", "meta": {}}
+
+    # --- نوع النصوص العادية ---
+    def _read_text(self, path):
+        with io.open(path, "r", encoding="utf-8", errors="ignore") as f:
+            return f.read()
+
+    # --- CSV ---
+    def _read_csv(self, path):
+        output = []
+        with io.open(path, "r", encoding="utf-8", errors="ignore") as f:
+            reader = csv.reader(f)
+            for row in reader:
+                output.append(", ".join(row))
+        return "\n".join(output)
+
+    # --- JSON ---
+    def _read_json(self, path):
+        with io.open(path, "r", encoding="utf-8", errors="ignore") as f:
+            data = json.load(f)
+        return json.dumps(data, indent=2, ensure_ascii=False)
+
+    # --- ZIP ---
+    def _read_zip(self, path):
+        text_data = []
+        with zipfile.ZipFile(path, "r") as z:
+            for name in z.namelist():
+                if name.endswith((".txt", ".log", ".json", ".csv")):
+                    with z.open(name) as f:
+                        try:
+                            text_data.append(f"--- {name} ---\n" + f.read().decode("utf-8", "ignore"))
+                        except:
+                            pass
+        return "\n".join(text_data)
+
+    # --- TAR ---
+    def _read_tar(self, path):
+        text_data = []
+        with tarfile.open(path, "r") as t:
+            for member in t.getmembers():
+                if member.isfile() and member.name.endswith((".txt", ".log")):
+                    f = t.extractfile(member)
+                    if f:
+                        text_data.append(f"--- {member.name} ---\n" + f.read().decode("utf-8", "ignore"))
+        return "\n".join(text_data)
+
+    # --- EVTX ---
+    def _read_evtx(self, path):
+        if not evtx:
+            return "⚠️ Python-Evtx not installed. Run: pip install python-evtx"
+        text_data = []
+        with evtx.Evtx(path) as log:
+            for record in log.records():
+                text_data.append(record.xml())
+        return "\n".join(text_data)
+
+    # --- PCAP ---
+    def _read_pcap(self, path):
+        if not dpkt:
+            return "⚠️ dpkt not installed. Run: pip install dpkt"
+        text_data = []
+        with open(path, "rb") as f:
+            pcap = dpkt.pcap.Reader(f)
+            for timestamp, buf in pcap:
+                try:
+                    eth = dpkt.ethernet.Ethernet(buf)
+                    if isinstance(eth.data, dpkt.ip.IP):
+                        ip = eth.data
+                        src = f"{ip.src[0]}.{ip.src[1]}.{ip.src[2]}.{ip.src[3]}"
+                        dst = f"{ip.dst[0]}.{ip.dst[1]}.{ip.dst[2]}.{ip.dst[3]}"
+                        text_data.append(f"Packet: {src} -> {dst}, len={len(buf)}")
+                except Exception:
+                    continue
+        return "\n".join(text_data)

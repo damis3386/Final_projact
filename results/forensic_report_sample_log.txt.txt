@@ -1,0 +1,11 @@
+File: data\sample_log.txt
+Lines: 5  Errors: 0  Warnings: 1
+Total risk score: 17  Overall: MEDIUM
+Recommended action: Continuous monitoring suggested
+
+Detected patterns:
+ - [medium] Malware x1 (score 5)  desc: برامج ضارة
+ - [medium] Unauthorized Access x1 (score 5)  desc: وصول غير مصرح به
+ - [medium] Failed Login x1 (score 5)  desc: محاولات دخول فاشلة
+ - [low] Warning x1 (score 1)  desc: تحذير نظام
+ - [low] Timeout x1 (score 1)  desc: انتهاء مهلة اتصال
