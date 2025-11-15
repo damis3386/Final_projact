@@ -2,56 +2,79 @@
   "high_risk_patterns": [
     {
       "name": "SQL Injection",
-      "pattern": "sql\\s+injection",
-      "description": "محاولة حقن أوامر SQL خبيثة",
+      "pattern": "select\\s+.*from|union\\s+select|drop\\s+table|sql\\s+injection",
+      "description": "محاولة حقن أو تعديل قواعد البيانات.",
       "score": 10,
-      "category": "اختراق قواعد البيانات"
+      "category": "هجمات تطبيقية - Application Attacks"
     },
     {
-      "name": "Ransomware",
-      "pattern": "ransomware",
-      "description": "اكتشاف برامج الفدية",
+      "name": "Ransomware Activity",
+      "pattern": "ransomware|encrypting\\s+files|decrypt\\s+key",
+      "description": "نشاط يدل على برمجيات الفدية أو تشفير الملفات.",
       "score": 10,
-      "category": "برامج ضارة"
+      "category": "برامج ضارة - Malware"
+    },
+    {
+      "name": "Privilege Escalation",
+      "pattern": "privilege\\s+escalation|elevated\\s+permissions",
+      "description": "محاولة للحصول على صلاحيات أعلى من المصرح بها.",
+      "score": 8,
+      "category": "أمان النظام - System Security"
     }
   ],
+
   "medium_risk_patterns": [
     {
-      "name": "Failed Login",
-      "pattern": "failed\\s+login",
-      "description": "محاولات دخول فاشلة",
+      "name": "Failed Login Attempts",
+      "pattern": "failed\\s+login|login\\s+failed|authentication\\s+failed",
+      "description": "محاولات تسجيل دخول خاطئة، يمكن أن تشير إلى هجوم تخمين.",
       "score": 5,
-      "category": "محاولات وصول"
-    },
-    {
-      "name": "Malware",
-      "pattern": "malware",
-      "description": "برامج ضارة",
-      "score": 5,
-      "category": "برامج ضارة"
+      "category": "أمن الهوية - Identity Security"
     },
     {
       "name": "Unauthorized Access",
-      "pattern": "unauthorized\\s+access",
-      "description": "وصول غير مصرح به",
+      "pattern": "unauthorized\\s+access|access\\s+denied",
+      "description": "محاولة دخول غير مصرح بها لأنظمة أو بيانات.",
       "score": 5,
-      "category": "أمن الشبكات"
-    }
-  ],
-  "low_risk_patterns": [
-    {
-      "name": "Warning",
-      "pattern": "warning",
-      "description": "تحذيرات نظام",
-      "score": 1,
-      "category": "مراقبة النظام"
+      "category": "أمن الشبكات - Network Security"
     },
     {
-      "name": "Timeout",
-      "pattern": "timeout",
-      "description": "انتهاء مهلة الاتصال",
+      "name": "Malware Indicators",
+      "pattern": "malware|trojan|worm",
+      "description": "مؤشرات على وجود برنامج ضار.",
+      "score": 5,
+      "category": "برامج ضارة - Malware"
+    },
+    {
+      "name": "Brute Force Behavior",
+      "pattern": "(failed\\s+login.*){3,}",
+      "description": "أنماط متكررة تدل على هجوم brute force.",
+      "score": 6,
+      "category": "هجمات التخمين - Brute Force Attacks"
+    }
+  ],
+
+  "low_risk_patterns": [
+    {
+      "name": "System Warning",
+      "pattern": "warning",
+      "description": "تحذيرات نظام عامة.",
       "score": 1,
-      "category": "أداء النظام"
+      "category": "مراقبة النظام - System Monitoring"
+    },
+    {
+      "name": "Timeout / Connection Delay",
+      "pattern": "timeout|time\\s*out",
+      "description": "انتهاء مهلة الاتصال أو بطء الشبكة.",
+      "score": 1,
+      "category": "أخطاء الشبكة - Network Issues"
+    },
+    {
+      "name": "Scanning Activity",
+      "pattern": "scan|scanning",
+      "description": "نشاط يدل على فحص المنفاذ أو الشبكة.",
+      "score": 1,
+      "category": "مراقبة الشبكة - Network Monitoring"
     }
   ]
 }
