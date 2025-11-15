@@ -1,96 +1,124 @@
 # run_analysis.py
-from core.file_handlers import FileHandlers
-from core.analyzer import ForensicAnalyzer
-from colorama import init, Fore, Style
-from concurrent.futures import ThreadPoolExecutor
-import logging
-import os
+# -*- coding: utf-8 -*-
 
-# ----------------------------
-# إعداد Logging
-# ----------------------------
+"""
+تشغيل التحليل الجنائي الرقمي على جميع الملفات داخل مجلد data/
+يدعم:
+- Multi-threading
+- Color Output
+- Logging
+- حفظ تقارير نصية منفصلة لكل ملف
+"""
+
+import os
+import logging
+from concurrent.futures import ThreadPoolExecutor
+
+from colorama import init, Fore, Style
+
+from analysis import analyze_file   # نستخدم المحرك الرئيسي
+from core.file_handlers import FileHandlers
+
+
+# ==========================
+# 🔧 Logging
+# ==========================
 logging.basicConfig(
     filename='analysis.log',
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-# ----------------------------
-# تهيئة Colorama
-# ----------------------------
-init(autoreset=True)
+init(autoreset=True)  # colorama
 
-# ----------------------------
+
+# ==========================
 # دوال مساعدة
-# ----------------------------
-def safe_read_file(file_path):
-    """يقرأ الملفات بطريقة آمنة بدون تنفيذ أي كود"""
-    if file_path.endswith(('.exe', '.bat', '.cmd', '.js', '.vbs')):
-        print(Fore.RED + f"⚠️ تم حظر فتح الملف: {file_path} (ملفات تنفيذية غير مسموح بها)")
-        return ""
-    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-        return f.read()
+# ==========================
+def is_blocked_type(path: str) -> bool:
+    """حظر الملفات التنفيذية الضارة"""
+    blocked = (".exe", ".bat", ".cmd", ".vbs", ".js")
+    return path.lower().endswith(blocked)
 
-def print_risk_item(item):
-    level = item["level"].lower()
-    if level == "high":
-        color = Fore.RED
-        symbol = "🔴"
-    elif level == "medium":
-        color = Fore.YELLOW
-        symbol = "🟠"
+
+def print_colored_summary(file_path: str, report: str):
+    """طباعة ملخص بسيط من التقرير في التيرمنال مع ألوان"""
+
+    if "🟥" in report:
+        level = Fore.RED + "HIGH RISK"
+    elif "🟨" in report:
+        level = Fore.YELLOW + "MEDIUM RISK"
     else:
-        color = Fore.GREEN
-        symbol = "🟢"
-    print(color + f" - [{level}] {symbol} {item['name']} x{item['count']} (score {item['score']})  desc: {item['desc']}")
+        level = Fore.GREEN + "LOW RISK"
 
-def log_analysis(file_path, summary):
-    logging.info(f"تم تحليل الملف: {file_path}")
-    logging.info(f"عدد الأسطر: {summary['basic']['total_lines']}, Errors: {summary['basic']['errors']}, Warnings: {summary['basic']['warnings']}")
-    logging.info(f"Total risk score: {summary['total_score']}, Overall: {summary['overall_level']}")
+    print(Fore.CYAN + f"\n=== Analyzing File: {file_path} ===")
+    print("Risk Level:", level)
+    print(Fore.CYAN + "====================================\n")
 
-def analyze_file(file_path):
-    text_content = safe_read_file(file_path)
-    if not text_content:
-        return None
 
-    analyzer = ForensicAnalyzer()
-    basic_summary = analyzer.analyze_basic(text_content)
-    patterns_summary = analyzer.search_patterns(text_content)
-    summary = analyzer.summarize(basic_summary, patterns_summary)
-
-    # طباعة النتائج على الشاشة
-    print(f"\n=== Forensic Summary: {file_path} ===")
-    print(f"Lines: {summary['basic']['total_lines']}  Errors: {summary['basic']['errors']}  Warnings: {summary['basic']['warnings']}")
-    print(f"Total risk score: {summary['total_score']}  Overall: {summary['overall_level']}")
-    print(f"Recommended action: {summary['recommended_action']}\n")
-    print("Detected patterns:")
-    for item in summary["patterns"]:
-        print_risk_item(item)
-
-    # حفظ التقرير في ملف
+def save_report_to_file(file_path: str, report: str):
+    """حفظ تقرير نصي منفصل لكل ملف"""
     os.makedirs("results", exist_ok=True)
-    base_name = os.path.basename(file_path)
-    report_path = os.path.join("results", f"forensic_report_{base_name}.txt")
-    with open(report_path, 'w', encoding='utf-8') as f:
-        f.write(f"File: {file_path}\n")
-        f.write(f"Lines: {summary['basic']['total_lines']}  Errors: {summary['basic']['errors']}  Warnings: {summary['basic']['warnings']}\n")
-        f.write(f"Total risk score: {summary['total_score']}  Overall: {summary['overall_level']}\n")
-        f.write(f"Recommended action: {summary['recommended_action']}\n\n")
-        f.write("Detected patterns:\n")
-        for item in summary["patterns"]:
-            f.write(f" - [{item['level']}] {item['name']} x{item['count']} (score {item['score']})  desc: {item['desc']}\n")
 
-    log_analysis(file_path, summary)
-    return summary
+    base = os.path.basename(file_path)
+    name = os.path.splitext(base)[0]
 
-# ----------------------------
-# تحليل جميع الملفات في مجلد محدد
-# ----------------------------
-folder_path = "data"
-all_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
+    out = os.path.join("results", f"{name}_report.txt")
 
-with ThreadPoolExecutor(max_workers=4) as executor:
-    results = list(executor.map(analyze_file, all_files))
+    with open(out, "w", encoding="utf-8") as f:
+        f.write(report)
 
-print("\n✅ تم تحليل جميع الملفات وحفظ التقارير في مجلد results/")
+    logging.info(f"Saved report: {out}")
+
+
+# ==========================
+# الدالة الرئيسية لتحليل ملف
+# ==========================
+def analyze_single_file(file_path: str):
+    """تحليل ملف واحد"""
+    if is_blocked_type(file_path):
+        print(Fore.RED + f"⚠️ تخطي الملف (غير مسموح): {file_path}")
+        return
+
+    print(Fore.CYAN + f"\n🔍 Now Analyzing: {file_path}")
+
+    report = analyze_file(file_path)
+
+    print_colored_summary(file_path, report)
+    save_report_to_file(file_path, report)
+
+
+# ==========================
+# تشغيل التحليل على جميع الملفات
+# ==========================
+def run_batch_analysis(folder="data"):
+    """تحليل جميع الملفات في مجلد معين"""
+
+    if not os.path.exists(folder):
+        print(Fore.RED + f"❌ المجلد غير موجود: {folder}")
+        return
+
+    all_files = [
+        os.path.join(folder, f)
+        for f in os.listdir(folder)
+        if os.path.isfile(os.path.join(folder, f))
+    ]
+
+    if not all_files:
+        print(Fore.YELLOW + f"⚠️ لا توجد ملفات لتحليلها داخل: {folder}")
+        return
+
+    print(Fore.GREEN + f"\n🚀 بدء التحليل لـ {len(all_files)} ملف(ات)...")
+
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        executor.map(analyze_single_file, all_files)
+
+    print(Fore.GREEN + "\n🎉 اكتمل تحليل جميع الملفات!")
+    print(Fore.GREEN + "📂 تم حفظ التقارير داخل مجلد results/\n")
+
+
+# ==========================
+# تشغيل مباشر
+# ==========================
+if __name__ == "__main__":
+    run_batch_analysis("data")
