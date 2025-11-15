@@ -1,8 +1,10 @@
+import tkinter as tk
+from tkinter import filedialog, messagebox
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
-from tkinter import filedialog, messagebox
-import tkinter as tk
-from analysis import analyze_file  # import analysis function from analysis.py
+
+from analysis import analyze_file
+from reportgen import PDFReportGenerator
 
 
 class ForensicsToolApp:
@@ -12,10 +14,11 @@ class ForensicsToolApp:
         self.root.geometry("900x600")
         self.root.resizable(False, False)
 
-        # ===== App Theme =====
-        style = ttk.Style("cyborg")  # Dark modern theme
+        self.last_results = None
+        self.last_file_path = None
 
-        # ===== Title =====
+        style = ttk.Style("cyborg")
+
         title = ttk.Label(
             root,
             text="🔍 Integrated Digital Forensics Tool",
@@ -24,13 +27,14 @@ class ForensicsToolApp:
         )
         title.pack(pady=20)
 
-        # ===== File Selection Section =====
         file_frame = ttk.Frame(root, padding=10)
         file_frame.pack(pady=10)
 
         ttk.Label(
-            file_frame, text="Select a file to analyze:", font=("Segoe UI", 12)
-        ).grid(row=0, column=0, padx=10)
+            file_frame,
+            text="Select a file to analyze:",
+            font=("Segoe UI", 12)
+        ).grid(row=0, column=0, padx=10, sticky="w")
 
         ttk.Button(
             file_frame,
@@ -46,9 +50,8 @@ class ForensicsToolApp:
             width=60,
             anchor="w"
         )
-        self.selected_file_label.grid(row=1, column=0, columnspan=2, pady=5)
+        self.selected_file_label.grid(row=1, column=0, columnspan=2, pady=5, sticky="w")
 
-        # ===== Buttons Section =====
         button_frame = ttk.Frame(root, padding=10)
         button_frame.pack(pady=10)
 
@@ -76,9 +79,10 @@ class ForensicsToolApp:
             width=20
         ).grid(row=0, column=2, padx=15)
 
-        # ===== Output Section =====
         ttk.Label(
-            root, text="Analysis Results:", font=("Segoe UI", 12, "bold")
+            root,
+            text="Analysis Results:",
+            font=("Segoe UI", 12, "bold")
         ).pack(pady=5)
 
         self.text_output = tk.Text(
@@ -90,9 +94,8 @@ class ForensicsToolApp:
             insertbackground="white",
             wrap="word"
         )
-        self.text_output.pack(padx=10, pady=5)
+        self.text_output.pack(padx=10, pady=5, fill="both", expand=True)
 
-        # ===== Status Bar =====
         self.status = tk.StringVar(value="Ready")
         status_bar = ttk.Label(
             root,
@@ -102,47 +105,80 @@ class ForensicsToolApp:
         )
         status_bar.pack(side="bottom", fill="x")
 
-    # ===== File Browsing Function =====
+    # ========== File Browser ==========
     def browse_file(self):
         file_path = filedialog.askopenfilename()
         if file_path:
             self.selected_file_label.config(text=file_path)
             self.status.set(f"Selected file: {file_path}")
+            self.last_file_path = file_path
+            self.last_results = None
 
-    # ===== Run Analysis Function =====
+    # ========== Run Analysis ==========
     def run_analysis(self):
         file_path = self.selected_file_label.cget("text")
         if file_path == "No file selected":
             messagebox.showwarning("Warning", "Please select a file first!")
-            self.status.set("Please select a file first!")
             return
 
         self.status.set("Analyzing file...")
-        self.text_output.delete(1.0, tk.END)  # Clear previous output
+        self.text_output.delete(1.0, tk.END)
 
-        # Call the actual analysis function
-        results = analyze_file(file_path)
+        results = analyze_file(file_path)  # ← FIXED
 
-        # Display results
-        if results:
-            self.text_output.insert(tk.END, "\n".join(results))
-        else:
-            self.text_output.insert(tk.END, "No suspicious entries found.")
-
+        self.last_results = results
+        self._show_results_in_textbox(results)
         self.status.set("Analysis completed!")
 
-    # ===== Generate Report Function (Placeholder) =====
-    def generate_report(self):
-        messagebox.showinfo("Report", "Report generated successfully!")
-        self.status.set("Report generated successfully!")
+    # ========== Display Results ==========
+    def _show_results_in_textbox(self, results):
+        basic = results.get("basic_analysis", {})
+        suspicious = results.get("suspicious_items", [])
+        full_text = results.get("text_report", "")
 
-    # ===== Clear Output Function =====
+        lines = []
+        lines.append("=== Quick Summary ===")
+        lines.append(f"Total lines: {basic.get('total_lines', '0')}")
+        lines.append(f"Errors: {basic.get('errors', '0')}")
+        lines.append(f"Warnings: {basic.get('warnings', '0')}")
+        lines.append(f"Info events: {basic.get('info_events', '0')}")
+        lines.append("")
+
+        lines.append("=== Suspicious Items ===")
+        if suspicious:
+            for item in suspicious:
+                lines.append(f"- {item.get('name')} ({item.get('count')})")
+        else:
+            lines.append("No suspicious patterns detected.")
+        lines.append("")
+
+        if full_text:
+            lines.append("=== Text Report (Preview) ===")
+            preview = full_text.split("\n")[:40]
+            lines.extend(preview)
+
+        self.text_output.insert(tk.END, "\n".join(lines))
+
+    # ========== Generate PDF ==========
+    def generate_report(self):
+        if self.last_results is None:
+            messagebox.showwarning("Warning", "Analyze a file before generating a report.")
+            return
+
+        try:
+            pdf = PDFReportGenerator()
+            output = pdf.generate_pdf(self.last_results)  # ← FIXED
+            if output:
+                messagebox.showinfo("Success", f"PDF saved:\n{output}")
+        except Exception as e:
+            messagebox.showerror("Error", f"PDF Generation Failed:\n{e}")
+
+    # ========== Clear ==========
     def clear_output(self):
         self.text_output.delete(1.0, tk.END)
         self.status.set("Output cleared.")
 
 
-# ===== Run the App =====
 if __name__ == "__main__":
     root = ttk.Window(themename="cyborg")
     app = ForensicsToolApp(root)
