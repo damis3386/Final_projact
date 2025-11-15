@@ -1,0 +1,6 @@
+2025-03-10 13:00:20 [INFO] Incoming request from 192.168.10.22
+2025-03-10 13:00:21 [WARNING] Suspicious input detected: ' OR '1'='1
+2025-03-10 13:00:21 [ALERT] Possible SQL Injection attempt
+2025-03-10 13:00:23 [ERROR] Query failed due to malformed SQL command.
+2025-03-10 13:00:25 [WARNING] Suspicious input detected: DROP TABLE users; --
+2025-03-10 13:00:27 [ALERT] High-risk SQL Injection exploit attempt logged.

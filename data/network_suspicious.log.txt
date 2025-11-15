@@ -1,0 +1,6 @@
+2025-02-15 20:00:11 [INFO] Incoming connection from 10.0.0.22
+2025-02-15 20:00:12 [WARNING] Unusually high outbound traffic to 185.22.10.55
+2025-02-15 20:00:13 [INFO] Connection opened: port 443
+2025-02-15 20:00:15 [ERROR] Unauthorized outbound API call detected
+2025-02-15 20:00:16 [ALERT] Data exfiltration suspected
+2025-02-15 20:00:18 [ALERT] Outbound connection blocked by firewall

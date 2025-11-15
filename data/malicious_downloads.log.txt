@@ -1,0 +1,5 @@
+2025-03-07 11:20:10 [INFO] User clicked download link.
+2025-03-07 11:20:11 [WARNING] Downloading file: http://malware-site.com/file.exe
+2025-03-07 11:20:12 [ALERT] Potential malicious executable detected.
+2025-03-07 11:20:15 [ERROR] File triggered blocked security rule.
+2025-03-07 11:20:16 [WARNING] Suspicious link accessed: http://unsafe.com/update.bat

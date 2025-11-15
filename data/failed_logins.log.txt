@@ -1,0 +1,6 @@
+2025-01-28 02:12:00 [INFO] Login attempt detected for user root
+2025-01-28 02:12:01 [FAILED LOGIN] Incorrect password from 192.168.1.50
+2025-01-28 02:12:02 [FAILED LOGIN] Incorrect password from 192.168.1.50
+2025-01-28 02:12:03 [FAILED LOGIN] Incorrect password from 192.168.1.50
+2025-01-28 02:12:05 [WARNING] Multiple failed login attempts detected
+2025-01-28 02:12:08 [ERROR] Possible brute-force attack detected
