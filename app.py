@@ -17,7 +17,7 @@ class ForensicsToolApp:
         self.last_results = None
         self.last_file_path = None
 
-        style = ttk.Style("cyborg")
+        ttk.Style("cyborg")
 
         title = ttk.Label(
             root,
@@ -105,7 +105,7 @@ class ForensicsToolApp:
         )
         status_bar.pack(side="bottom", fill="x")
 
-    # ========== File Browser ==========
+    # ===== File Browser =====
     def browse_file(self):
         file_path = filedialog.askopenfilename()
         if file_path:
@@ -114,7 +114,7 @@ class ForensicsToolApp:
             self.last_file_path = file_path
             self.last_results = None
 
-    # ========== Run Analysis ==========
+    # ===== Run Analysis =====
     def run_analysis(self):
         file_path = self.selected_file_label.cget("text")
         if file_path == "No file selected":
@@ -124,17 +124,29 @@ class ForensicsToolApp:
         self.status.set("Analyzing file...")
         self.text_output.delete(1.0, tk.END)
 
-        results = analyze_file(file_path)  # ← FIXED
+        try:
+            results = analyze_file(file_path)
+        except Exception as e:
+            messagebox.showerror("Error", f"Unexpected error during analysis:\n{e}")
+            self.status.set("Analysis failed.")
+            return
+
+        if results.get("error"):
+            msg = results.get("error", "Unknown analysis error.")
+            self.text_output.insert(tk.END, f"[ERROR] {msg}\n")
+            self.status.set("Analysis failed.")
+            messagebox.showerror("Analysis Error", msg)
+            return
 
         self.last_results = results
         self._show_results_in_textbox(results)
         self.status.set("Analysis completed!")
 
-    # ========== Display Results ==========
+    # ===== Show Results =====
     def _show_results_in_textbox(self, results):
         basic = results.get("basic_analysis", {})
         suspicious = results.get("suspicious_items", [])
-        full_text = results.get("text_report", "")
+        full_text = results.get("text_report") or results.get("full_text_report", "")
 
         lines = []
         lines.append("=== Quick Summary ===")
@@ -159,21 +171,25 @@ class ForensicsToolApp:
 
         self.text_output.insert(tk.END, "\n".join(lines))
 
-    # ========== Generate PDF ==========
+    # ===== Generate PDF =====
     def generate_report(self):
         if self.last_results is None:
             messagebox.showwarning("Warning", "Analyze a file before generating a report.")
             return
 
+        if self.last_results.get("error"):
+            messagebox.showwarning("Warning", "Cannot generate PDF for a failed analysis.")
+            return
+
         try:
             pdf = PDFReportGenerator()
-            output = pdf.generate_pdf(self.last_results)  # ← FIXED
+            output = pdf.generate_pdf(self.last_results)
             if output:
                 messagebox.showinfo("Success", f"PDF saved:\n{output}")
         except Exception as e:
             messagebox.showerror("Error", f"PDF Generation Failed:\n{e}")
 
-    # ========== Clear ==========
+    # ===== Clear Output =====
     def clear_output(self):
         self.text_output.delete(1.0, tk.END)
         self.status.set("Output cleared.")
@@ -183,3 +199,4 @@ if __name__ == "__main__":
     root = ttk.Window(themename="cyborg")
     app = ForensicsToolApp(root)
     root.mainloop()
+
