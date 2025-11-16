@@ -71,6 +71,95 @@ class PDFReportGenerator:
             fontSize=12, alignment=1, textColor=white, leading=16
         )
 
+    # -------- Helper: overall risk from suspicious items --------
+    def _compute_overall_risk(self, suspicious: List[Dict[str, Any]]) -> str:
+        """
+        يحسب مستوى الخطورة الكلي من قائمة التهديدات:
+        يرجع: "low" أو "medium" أو "high"
+        """
+        if not suspicious:
+            return "low"
+
+        score = 0
+        for item in suspicious:
+            level = str(item.get("level", "")).lower()
+            count = int(item.get("count", 1) or 1)
+            if level == "high":
+                score += 3 * count
+            elif level == "medium":
+                score += 2 * count
+            else:
+                score += 1 * count
+
+        if score >= 15:
+            return "high"
+        elif score >= 7:
+            return "medium"
+        else:
+            return "low"
+
+    # -------- Helper: threat-based recommendations --------
+    def _build_threat_recommendations(self, suspicious: List[Dict[str, Any]]) -> List[str]:
+        """
+        يبني توصيات حسب نوع التهديد.
+        يرجع قائمة نصوص عربية (كل عنصر نقطة مستقلة).
+        """
+        if not suspicious:
+            return []
+
+        recs: List[str] = []
+        seen_names = set()
+
+        for item in suspicious:
+            name = str(item.get("name", "")).strip()
+            if not name:
+                continue
+
+            key = name.lower()
+            if key in seen_names:
+                continue
+            seen_names.add(key)
+
+            level = str(item.get("level", "")).lower()
+
+            # توصيات مخصصة لأنواع معينة
+            if "ransomware" in key:
+                recs.append("بالنسبة لمؤشرات برمجيات الفدية (Ransomware): عزل الجهاز أو الخادم المشبوه عن الشبكة فورًا.")
+                recs.append("إجراء فحص أمني شامل باستخدام أداة موثوقة لمكافحة البرمجيات الخبيثة.")
+                recs.append("التحقق من وجود نسخ احتياطية سليمة قبل أي استعادة للبيانات.")
+            elif "sql injection" in key or "sql" in key:
+                recs.append("بالنسبة لمؤشرات هجمات SQL Injection: مراجعة الأكواد التي تتعامل مع قاعدة البيانات والتأكد من استخدام الاستعلامات المُهيكلة (Prepared Statements).")
+                recs.append("تمكين سجلات قاعدة البيانات (Database Logs) ومراقبة الاستعلامات غير الاعتيادية.")
+            elif "unauthorized" in key:
+                recs.append("بالنسبة لمحاولات الوصول غير المصرح به: مراجعة صلاحيات المستخدمين والتأكد من عدم وجود حسابات غير معروفة.")
+                recs.append("تفعيل مبدأ أقل صلاحية (Least Privilege) للحسابات الحساسة.")
+            elif "failed login" in key or "login" in key:
+                recs.append("بالنسبة لمحاولات الدخول الفاشلة المتكررة: تفعيل قفل الحساب مؤقتًا بعد عدد معين من المحاولات.")
+                recs.append("تفعيل المصادقة الثنائية (2FA) للحسابات المهمة.")
+            elif "malware" in key:
+                recs.append("بالنسبة لمؤشرات برمجيات خبيثة (Malware): إجراء فحص شامل للأجهزة التي تتعامل مع هذا النظام.")
+                recs.append("التأكد من تحديث برنامج الحماية من الفيروسات بشكل مستمر.")
+            elif "warning" in key or "timeout" in key:
+                recs.append("بالنسبة لتحذيرات النظام أو انتهاء المهلة: مراقبة السجلات لفترة أطول للتأكد من عدم تطور المشكلة إلى تهديد حقيقي.")
+            else:
+                # توصيات عامة إن لم نعرف نوع التهديد بشكل صريح
+                if level == "high":
+                    recs.append("تم رصد تهديد عالي الخطورة: يُنصح برفع بلاغ عاجل إلى فريق الأمن السيبراني ومتابعة الحالة فورًا.")
+                elif level == "medium":
+                    recs.append("تم رصد تهديد متوسط الخطورة: يُنصح بمراقبة السجلات والإجراءات المرتبطة بهذا التهديد بشكل دوري.")
+                else:
+                    recs.append("تم رصد مؤشرات منخفضة الخطورة: يُنصح بالاستمرار في المراقبة وتوثيق أي تغيّرات غير اعتيادية.")
+
+        # إزالة التكرار لو صار فيه نصوص مكررة
+        unique_recs = []
+        seen_texts = set()
+        for txt in recs:
+            if txt not in seen_texts:
+                seen_texts.add(txt)
+                unique_recs.append(txt)
+
+        return unique_recs
+
     # Background fill
     def _draw_background(self, canvas, doc):
         canvas.saveState()
@@ -108,6 +197,8 @@ class PDFReportGenerator:
         file_name = os.path.basename(results.get("file_path", ""))
         date_str = datetime.now().strftime("%Y-%m-%d  %H:%M")
 
+        overall_risk = self._compute_overall_risk(suspicious)
+
         # ------------ Title Page ------------
         story.append(Paragraph(fix_ar("تقرير التحليل الجنائي الرقمي"), self.style_title))
         story.append(Spacer(1, 20))
@@ -120,11 +211,23 @@ class PDFReportGenerator:
         story.append(Spacer(1, 10))
 
         if suspicious:
-            story.append(Paragraph(fix_ar("تم العثور على إشارات قد تكون مرتبطة بسلوك غير طبيعي داخل الملف."), self.style_normal))
-            story.append(Paragraph(fix_ar("ننصح بمراجعة التحليل بالتفصيل في الأقسام التالية."), self.style_normal))
+            story.append(Paragraph(
+                fix_ar("تم العثور على إشارات قد تكون مرتبطة بسلوك غير طبيعي داخل الملف."),
+                self.style_normal
+            ))
+            story.append(Paragraph(
+                fix_ar("ننصح بمراجعة التحليل بالتفصيل في الأقسام التالية."),
+                self.style_normal
+            ))
         else:
-            story.append(Paragraph(fix_ar("لم يتم العثور على نشاطات غير طبيعية داخل الملف."), self.style_normal))
-            story.append(Paragraph(fix_ar("يبدو الملف سليمًا ويمكن استخدامه بشكل اعتيادي."), self.style_normal))
+            story.append(Paragraph(
+                fix_ar("لم يتم العثور على نشاطات غير طبيعية داخل الملف."),
+                self.style_normal
+            ))
+            story.append(Paragraph(
+                fix_ar("يبدو الملف سليمًا ويمكن استخدامه بشكل اعتيادي."),
+                self.style_normal
+            ))
 
         story.append(Spacer(1, 25))
 
@@ -143,7 +246,6 @@ class PDFReportGenerator:
 
         if suspicious:
 
-            # HEADER — reversed order (الوصف يسار - اسم التهديد يمين)
             table_data = [[
                 Paragraph(fix_ar("الوصف"), self.style_table_header),
                 Paragraph(fix_ar("درجة الخطورة"), self.style_table_header),
@@ -151,14 +253,12 @@ class PDFReportGenerator:
                 Paragraph(fix_ar("اسم التهديد"), self.style_table_header)
             ]]
 
-            # DATA ROWS — reversed
             for item in suspicious:
-
-                level = item.get("level", "").lower()
+                level = str(item.get("level", "")).lower()
                 color = (
-                    self.green if level == "low" else
-                    self.orange if level == "medium" else
-                    self.red
+                    self.green if level == "low"
+                    else self.orange if level == "medium"
+                    else self.red
                 )
 
                 risk_style = ParagraphStyle(
@@ -176,7 +276,6 @@ class PDFReportGenerator:
                     Paragraph(fix_ar(item.get("name", "")), self.style_table_cell)
                 ])
 
-            # SMALL TABLE WIDTHS
             col_widths = [160, 90, 70, 140]
 
             table = Table(table_data, colWidths=col_widths, hAlign="CENTER")
@@ -201,52 +300,73 @@ class PDFReportGenerator:
             story.append(Spacer(1, 30))
 
         else:
-            story.append(Paragraph(fix_ar("لا توجد تهديدات مكتشفة."), self.style_normal))
+            story.append(Paragraph(fix_ar("لا توجد تهديدات مكتشفة في هذا الملف."), self.style_normal))
             story.append(Spacer(1, 20))
 
-        # ------------ Advanced Stats ------------
+        # ------------ Advanced Stats (Placeholder) ------------
         story.append(Paragraph(fix_ar("الإحصائيات المتقدمة"), self.style_section))
         story.append(Spacer(1, 10))
 
         if not stats:
-            story.append(Paragraph(fix_ar("لا توجد نتائج تحليلية متقدمة."), self.style_normal))
+            story.append(Paragraph(fix_ar("لا توجد نتائج تحليلية متقدمة متاحة لهذا الملف."), self.style_normal))
 
         story.append(PageBreak())
 
-        # ------------ NEXT STEPS ------------
-        story.append(Paragraph(fix_ar("ما الخطوات القادمة؟"), self.style_section))
+        # ------------ Threat-based Recommendations ------------
+        story.append(Paragraph(fix_ar("التوصيات حسب نوع التهديد"), self.style_section))
         story.append(Spacer(1, 10))
 
-        next_steps = [
-            "مراجعة مصدر السجلات لمعرفة النظام المتأثر.",
-            "تحليل نوع النشاط المشبوه وتحديد تأثيره.",
-            "تغيير كلمات المرور للحسابات المتضررة.",
-            "تفعيل المصادقة الثنائية (2FA).",
-            "مراقبة النظام خلال الساعات القادمة.",
-            "التواصل مع مختص سيبراني إذا تكرر النشاط."
-        ]
+        threat_recs = self._build_threat_recommendations(suspicious)
 
-        for step in next_steps:
-            story.append(Paragraph(fix_ar(f"• {step}"), self.style_normal))
+        if not suspicious:
+            story.append(Paragraph(
+                fix_ar("لم يتم رصد تهديدات مباشرة في هذا الملف، لذلك لا توجد توصيات خاصة بنوع تهديد محدد."),
+                self.style_normal
+            ))
+        elif not threat_recs:
+            story.append(Paragraph(
+                fix_ar("تم رصد تهديدات، لكن لم يتم التعرف على نوع محدد لتقديم توصيات مخصصة. يُنصح بمراجعة فريق الأمن السيبراني."),
+                self.style_normal
+            ))
+        else:
+            for rec in threat_recs:
+                story.append(Paragraph(fix_ar(f"• {rec}"), self.style_normal))
 
         story.append(Spacer(1, 25))
 
-        # ------------ Recommendations ------------
-        story.append(Paragraph(fix_ar("التوصيات بناءً على التحليل"), self.style_section))
+        # ------------ Overall Risk Recommendations ------------
+        story.append(Paragraph(fix_ar("التوصيات حسب مستوى خطورة الملف بالكامل"), self.style_section))
         story.append(Spacer(1, 10))
 
-        recs = [
-            "تغيير كلمات المرور فورًا للحسابات المتأثرة.",
-            "تفعيل المصادقة الثنائية (2FA).",
-            "مراقبة محاولات الدخول المستقبلية.",
-            "التحقق من عدم مشاركة بيانات الدخول."
-        ]
+        if overall_risk == "high":
+            overall_lines = [
+                "مستوى الخطورة الكلي: مرتفع.",
+                "يُوصى بالتعامل مع الملف والسجلات المرتبطة به كحالة أمنية عاجلة.",
+                "عزل الأنظمة أو الأجهزة المرتبطة بهذه السجلات عن الشبكة إذا لزم الأمر.",
+                "رفع بلاغ عاجل إلى فريق الأمن السيبراني أو الجهة المختصة.",
+                "الاحتفاظ بنسخ من السجلات لأغراض التحقيق الرقمي."
+            ]
+        elif overall_risk == "medium":
+            overall_lines = [
+                "مستوى الخطورة الكلي: متوسط.",
+                "يُوصى بمراقبة النظام والسجلات خلال الفترة القادمة للتأكد من عدم تطور النشاط.",
+                "تنفيذ الإجراءات التصحيحية المقترحة في هذا التقرير (مثل تفعيل 2FA ومراجعة الصلاحيات).",
+                "توثيق أي تغيّرات جديدة قد تظهر في السجلات."
+            ]
+        else:
+            overall_lines = [
+                "مستوى الخطورة الكلي: منخفض.",
+                "لا توجد مؤشرات قوية على تهديد مباشر، لكن يُنصح بالاستمرار في المراقبة الدورية للسجلات.",
+                "الحرص على تحديث الأنظمة والبرمجيات بشكل منتظم.",
+                "تطبيق أفضل الممارسات العامة في الأمن السيبراني لحماية الأنظمة."
+            ]
 
-        for r in recs:
-            story.append(Paragraph(fix_ar(f"• {r}"), self.style_normal))
+        for line in overall_lines:
+            story.append(Paragraph(fix_ar(f"• {line}"), self.style_normal))
 
         story.append(Spacer(1, 30))
 
+        # ------------ END ------------
         story.append(Paragraph(fix_ar("________________________________________________________"), self.style_center))
         story.append(Spacer(1, 6))
         story.append(Paragraph(fix_ar("تم اكتمال التحليل."), self.style_center))
@@ -254,4 +374,3 @@ class PDFReportGenerator:
         doc.build(story, onFirstPage=self._draw_background, onLaterPages=self._draw_background)
 
         return filename
-
