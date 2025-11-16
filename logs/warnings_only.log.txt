@@ -1,0 +1,6 @@
+2025-02-02 09:12:10 [INFO] User session started.
+2025-02-02 09:12:15 [WARNING] Disk space is below 20%.
+2025-02-02 09:12:20 [INFO] Backup process initiated.
+2025-02-02 09:12:45 [WARNING] High memory usage detected.
+2025-02-02 09:13:00 [INFO] Backup completed successfully.
+2025-02-02 09:13:20 [WARNING] Temporary files exceed safe limit.

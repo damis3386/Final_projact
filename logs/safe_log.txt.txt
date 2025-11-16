@@ -1,0 +1,7 @@
+2025-01-12 10:22:11 [INFO] Application started successfully.
+2025-01-12 10:22:12 [INFO] User logged in: admin
+2025-01-12 10:23:45 [INFO] File scanned: report.docx
+2025-01-12 10:24:00 [INFO] System running normally.
+2025-01-12 10:25:10 [INFO] Background job completed successfully.
+2025-01-12 10:26:30 [INFO] No anomalies detected.
+2025-01-12 10:27:55 [INFO] Scheduled task executed successfully.
