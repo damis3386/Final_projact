@@ -272,15 +272,6 @@ class PDFReportGenerator:
             story.append(Paragraph(fix_ar("لا توجد تهديدات مكتشفة في هذا الملف."), self.style_normal))
             story.append(Spacer(1, 20))
 
-        # ------------ Advanced Stats ------------
-        story.append(Paragraph(fix_ar("الإحصائيات المتقدمة"), self.style_section))
-        story.append(Spacer(1, 10))
-
-        if not stats:
-            story.append(Paragraph(fix_ar("لا توجد نتائج تحليلية متقدمة متاحة لهذا الملف."), self.style_normal))
-
-        story.append(PageBreak())
-
         # ------------ Threat-based Recommendations ------------
         story.append(Paragraph(fix_ar("التوصيات حسب نوع التهديد"), self.style_section))
         story.append(Spacer(1, 10))
